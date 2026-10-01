@@ -44,7 +44,15 @@ SEL = {
     "align_button": "button[data-name='align-drop-down-with-justify']",  # 현재 정렬에 따라 클래스가 바뀌므로 data-name 사용
     "align_center": "button.se-toolbar-option-align-center-button",
     "bold_button": "button.se-bold-toolbar-button",
+    "video_button": "button.se-video-toolbar-button",
+    "video_local": "button.nvu_local, button.nvu_btn_local",
+    "video_uploader": "[class*=nvu]",
+    "video_title": "input.nvu_inp",
+    "video_submit": "button.nvu_btn_submit",
+    "video_close": "button.nvu_btn_close",
+    "video_component": ".se-component.se-video",
 }
+VIDEO_UPLOAD_S = 300  # 동영상 업로드 최대 대기(초)
 STEP_MS = 150  # 줄 입력 사이 대기. 너무 빠르면 에디터가 입력을 놓친다.
 COMPONENT_MS = 1000  # 인용구·지도·사진 삽입 후 대기
 CLICK_MS = 300  # 클릭 직후 바로 입력하면 첫 글자가 사라진다
@@ -105,6 +113,8 @@ def plan_actions(d: Draft, r: ReviewInput, title: str) -> list[tuple]:
             acts.append(("map", f"{r.store} {r.area}"))
         elif b.type == "photo" and (folder / b.file).is_file():
             acts.append(("photo", str(folder / b.file)))
+        elif b.type == "video" and (folder / b.file).is_file():
+            acts.append(("video", str(folder / b.file), f"{r.store} {r.area}"[:40]))  # 동영상 제목은 필수, 최대 40자
     acts.append(("line", d.hashtag_line))
     acts.append(("align_all_center",))
     return acts
@@ -138,6 +148,27 @@ def _wait_uploaded(page: CDPPage, index: int) -> None:
             return
         page.sleep(500)
     raise EditorError("사진 업로드가 1분 안에 끝나지 않았습니다.")
+
+
+def _insert_video(page: CDPPage, path: str, title: str) -> None:
+    before = page.count(SEL["video_component"])
+    page.click(SEL["video_button"])
+    page.sleep(COMPONENT_MS)
+    page.choose_file(SEL["video_local"], path, timeout=10)
+    for _ in range(VIDEO_UPLOAD_S):
+        if page.has_text(SEL["video_uploader"], "업로드 완료"):
+            break
+        if page.has_text(SEL["video_uploader"], "실패"):
+            _try_click(page, SEL["video_close"])
+            raise EditorError(f"동영상 업로드에 실패했습니다: {Path(path).name}")
+        page.sleep(1000)
+    else:
+        _try_click(page, SEL["video_close"])
+        raise EditorError(f"동영상 업로드가 {VIDEO_UPLOAD_S // 60}분 안에 끝나지 않았습니다: {Path(path).name}")
+    page.fill(SEL["video_title"], title)  # 제목은 필수
+    page.sleep(CLICK_MS)
+    page.click(SEL["video_submit"])
+    page.wait_for(SEL["video_component"], before, visible=False, timeout=30)
 
 
 def _insert_map(page: CDPPage, query: str) -> bool:
@@ -207,6 +238,10 @@ def _run(page: CDPPage, act: tuple, warnings: list[str]) -> None:
         _wait_uploaded(page, before)
         page.sleep(COMPONENT_MS)
         page.press("ArrowDown")  # 사진 아래에 자동으로 생기는 빈 줄
+    elif kind == "video":
+        _insert_video(page, act[1], act[2])
+        page.sleep(COMPONENT_MS)
+        page.press("ArrowDown")  # 동영상 아래에 자동으로 생기는 빈 줄
     elif kind == "map":
         if not _insert_map(page, act[1]):
             _type(page, f"[지도: {act[1]}]")

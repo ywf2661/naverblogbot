@@ -7,7 +7,8 @@ import anthropic
 from . import history, preview
 from .draft import Draft, check, checklist, draft_from_dict, finalize
 from .inputs import ReviewInput
-from .photos import list_photos
+from .lookup import PlaceInfo, lookup_place
+from .photos import list_media
 from .settings import Settings, app_dir
 from .writer import DraftError, write_draft
 
@@ -20,13 +21,26 @@ class Result:
     html_path: Path
 
 
-def make_draft(r: ReviewInput, s: Settings, client, history_path: Path | None = None) -> Result:
+def make_draft(r: ReviewInput, s: Settings, client, history_path: Path | None = None,
+               lookup: bool = True, log=lambda m: None) -> Result:
     history_path = history_path or app_dir() / "history.json"
-    paths = list_photos(r.photo_dir)
-    raw = write_draft(client, s.model, r, paths, s.style_samples, history.recent_phrases(history_path))
+    pre_warnings: list[str] = []
+    place = PlaceInfo()
+    if lookup and not r.extra.strip():  # 직접 입력한 정보가 있으면 검색하지 않는다
+        log("영업시간·주차 검색 중... (1~2분)")
+        try:
+            place = lookup_place(client, s.model, r.store, r.area)
+        except Exception as e:
+            pre_warnings.append(f"영업시간·주차 자동 검색에 실패해 빼고 썼습니다: {friendly_error(e)}")
+    log("초안 쓰는 중... (1~2분)")
+    paths = list_media(r.photo_dir)
+    raw = write_draft(client, s.model, r, paths, s.style_samples, history.recent_phrases(history_path), place=place)
     d = finalize(raw, r)
-    warnings = check(d, r, [p.name for p in paths])
+    warnings = pre_warnings + check(d, r, [p.name for p in paths])
     items = checklist(d, r)
+    if place.found:
+        sources = " ".join(place.sources[:3])
+        items.insert(0, f"검색으로 찾은 정보({place.memo()})가 지금도 맞는지 확인하세요. 출처: {sources}")
     html_path = preview.save(d, r, warnings, items)
     history.remember(history_path, d)
     return Result(d, warnings, items, html_path)

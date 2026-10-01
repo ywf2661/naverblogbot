@@ -53,7 +53,7 @@ def setup(tmp_path):
 
 def test_system_includes_rules_and_style():
     s = build_system("저는 ~했어용 말투")
-    assert "22자" in s and "1,500~2,300자" in s
+    assert "22자" in s and "2,300자 이하" in s
     assert "저는 ~했어용 말투" in s
     assert "<내 글 예시>" not in build_system("")
 
@@ -104,3 +104,30 @@ def test_uses_last_text_block_after_fallback(setup):
         SimpleNamespace(type="text", text=json.dumps(DRAFT_JSON, ensure_ascii=False)),
     ]
     assert write_draft(client, "m", r, paths, "", []).titles == DRAFT_JSON["titles"]
+
+
+def test_schema_allows_video_blocks():
+    assert "video" in SCHEMA["properties"]["blocks"]["items"]["properties"]["type"]["enum"]
+
+
+def test_system_prompt_guides_useful_info():
+    s = build_system("")
+    assert "주문 번호" in s and "키오스크" in s  # 쓸데없는 정보 예시
+    assert "메뉴판을 통째로" in s
+    assert "1,500자 이상" in s  # 너무 짧게 쓰지 않게
+    assert "사진 → 글" in s  # 상위 글처럼 사진 먼저, 그 아래 설명
+
+
+def test_user_content_labels_video_and_place_info(tmp_path):
+    import subprocess
+
+    import imageio_ffmpeg
+
+    from naverblogbot.lookup import PlaceInfo
+    subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                    "testsrc=duration=1:size=320x240:rate=5", "-pix_fmt", "yuv420p", str(tmp_path / "v.mov")], check=True)
+    r = ReviewInput(tmp_path, "도스마스", "여의도", "맛있음", False)
+    content = build_user_content(r, [tmp_path / "v.mov"], [], PlaceInfo(hours="매일 10~21시", parking="주차 가능"))
+    assert "웹 검색으로 찾은 정보" in content[0]["text"] and "매일 10~21시" in content[0]["text"]
+    assert content[1]["text"].startswith("동영상 파일명: v.mov")
+    assert content[2]["type"] == "image"

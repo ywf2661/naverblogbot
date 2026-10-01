@@ -30,3 +30,10 @@ def test_save_writes_files(tmp_path):
     html_path = save(sample(), r, [], [])
     assert html_path == tmp_path / "draft.html"
     assert json.loads((tmp_path / "draft.json").read_text(encoding="utf-8"))["titles"][1] == "제목2"
+
+
+def test_render_html_shows_video_placeholder():
+    d = sample()
+    d.blocks.append(Block("video", file="v.mov"))
+    html = render_html(d, ReviewInput(Path("."), "해미옥", "판교", "좋음", False), [], [])
+    assert "[동영상: v.mov]" in html

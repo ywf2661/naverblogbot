@@ -84,8 +84,19 @@ def disclosure_text(sponsor: str) -> str:
     return f"[협찬] 이 글은 {sponsor}{_josa_ro(sponsor)}부터 식사를 무상으로 제공받아 작성했습니다."
 
 
+def _collapse_blanks(blocks: list[Block]) -> list[Block]:
+    out: list[Block] = []
+    for b in blocks:
+        if b.type == "blank" and (not out or out[-1].type == "blank"):
+            continue
+        out.append(b)
+    while out and out[-1].type == "blank":
+        out.pop()
+    return out
+
+
 def finalize(d: Draft, r: ReviewInput) -> Draft:
-    blocks = [replace(b, lines=[x for line in b.lines for x in wrap_line(line)]) for b in d.blocks]
+    blocks = _collapse_blanks([replace(b, lines=[x for line in b.lines for x in wrap_line(line)]) for b in d.blocks])
     return replace(d, blocks=blocks, disclosure=disclosure_text(r.sponsor) if r.sponsored else "")
 
 
@@ -109,13 +120,13 @@ def check(d: Draft, r: ReviewInput, photo_names: list[str]) -> list[str]:
                         "짧다면 소감·메뉴 메모를 더 적고 다시 만들어 보세요.")
     if len(photo_names) < rules.PHOTO_MIN:
         warnings.append(f"사진이 {len(photo_names)}장입니다. 상위 글은 보통 {rules.PHOTO_MIN}장 이상이에요.")
-    used = [b.file for b in d.blocks if b.type == "photo"]
+    used = [b.file for b in d.blocks if b.type in ("photo", "video")]
     for name in photo_names:
         if name not in used:
-            warnings.append(f"{name} 사진이 본문에서 빠졌습니다.")
+            warnings.append(f"{name} 사진·동영상이 본문에서 빠졌습니다.")
     for name in used:
         if name not in photo_names:
-            warnings.append(f"{name}은(는) 폴더에 없는 사진이라 입력하지 않습니다.")
+            warnings.append(f"{name}은(는) 폴더에 없는 파일이라 입력하지 않습니다.")
     emoji = sum(len(rules.EMOJI_RE.findall(t)) for t in _texts(d))
     if emoji > rules.EMOJI_MAX:
         warnings.append(f"이모지가 {emoji}개입니다. {rules.EMOJI_MAX}개 이하로 줄이는 걸 권장해요.")

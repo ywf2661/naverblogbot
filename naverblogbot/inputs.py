@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+VIDEO_EXTS = {".mp4", ".mov", ".m4v"}
+MEDIA_EXTS = PHOTO_EXTS | VIDEO_EXTS
 HEIC_EXTS = {".heic", ".heif"}
 
 
@@ -45,8 +47,8 @@ def validate(r: ReviewInput) -> list[str]:
     if heic:
         errors.append(f"HEIC 사진 {heic}장은 쓸 수 없습니다. JPG로 바꾸거나 폴더에서 빼 주세요 "
                       "(아이폰: 설정 > 카메라 > 포맷 > 높은 호환성).")
-    elif not any(e in PHOTO_EXTS for e in exts):
-        errors.append("폴더에 사진(jpg, png, webp)이 없습니다.")
+    elif not any(e in MEDIA_EXTS for e in exts):
+        errors.append("폴더에 사진이나 동영상(jpg, png, webp, mp4, mov)이 없습니다.")
     return errors
 
 

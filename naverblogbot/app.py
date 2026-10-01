@@ -86,10 +86,13 @@ class App(tk.Tk):
         self.extra = self._entry(9, "웨이팅·주차·영업시간")
         self.keywords = self._entry(10, "필수 키워드(쉼표)")
         self.guide_t = self._text(11, "캠페인 가이드")
+        self.lookup_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(self.form, text="영업시간·주차 자동 검색 (직접 적으면 검색 안 함, 약 200원·1~2분 추가)",
+                        variable=self.lookup_var).grid(row=12, column=1, columnspan=2, sticky="w")
         self.make_btn = ttk.Button(self.form, text="초안 만들기", command=self.on_make)
-        self.make_btn.grid(row=12, column=1, sticky="w", pady=8)
+        self.make_btn.grid(row=13, column=1, sticky="w", pady=8)
         self.status = ttk.Label(self.form, text="", foreground="#03c75a")
-        self.status.grid(row=13, column=0, columnspan=3, sticky="w")
+        self.status.grid(row=14, column=0, columnspan=3, sticky="w")
 
         res = ttk.LabelFrame(self, text="결과", padding=12)
         res.grid(row=0, column=1, sticky="nsew", padx=(0, 12), pady=12)
@@ -149,13 +152,13 @@ class App(tk.Tk):
                 f"{', '.join(missing)}이(가) 비어 있습니다.\n봇은 이 내용을 지어내지 않고 빼고 씁니다. 계속할까요?"):
             return
         self.make_btn.config(state="disabled")
-        self._set_status("초안 만드는 중... (1~2분 걸려요)")
-        threading.Thread(target=self._make_worker, args=(r,), daemon=True).start()
+        self._set_status("초안 만드는 중...")
+        threading.Thread(target=self._make_worker, args=(r, self.lookup_var.get()), daemon=True).start()
 
-    def _make_worker(self, r):
+    def _make_worker(self, r, lookup):
         try:
             client = anthropic.Anthropic(api_key=self.s.api_key)
-            result = pipeline.make_draft(r, self.s, client)
+            result = pipeline.make_draft(r, self.s, client, lookup=lookup, log=self._set_status)
             self.after(0, lambda: self._on_made(result))
         except Exception as e:
             msg = pipeline.friendly_error(e)

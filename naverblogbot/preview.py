@@ -31,6 +31,8 @@ def render_html(d: Draft, r: ReviewInput, warnings: list[str], items: list[str])
             out.append("<div class='blank'></div>")
         elif b.type == "photo":
             out.append(f'<img src="{e(b.file)}" alt="{e(b.file)}">')
+        elif b.type == "video":
+            out.append(f"<div class='map'>[동영상: {e(b.file)}]</div>")
         elif b.type == "map":
             out.append(f"<div class='map'>[지도: {e(r.store)} {e(r.area)}]</div>")
     out.append(f"<p>{e(d.hashtag_line)}</p></div>")

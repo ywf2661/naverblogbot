@@ -106,3 +106,18 @@ def test_checklist_items():
     assert any("돈가스 12,000원" in i for i in items)
     assert any("지도" in i for i in items)
     assert not any("배너" in i for i in checklist(d, review()))
+
+
+def test_finalize_collapses_blank_blocks():
+    d = sample()
+    d.blocks = [Block("blank"), Block("lines", lines=["a"]), Block("blank"), Block("blank"), Block("blank"),
+                Block("lines", lines=["b"]), Block("blank"), Block("blank")]
+    kinds = [b.type for b in finalize(d, review()).blocks]
+    assert kinds == ["lines", "blank", "lines"]
+
+
+def test_check_counts_videos_as_media():
+    d = sample(photos=("a.jpg",))
+    d.blocks.append(Block("video", file="v.mov"))
+    assert not any("v.mov" in w for w in check(d, review(), ["a.jpg", "v.mov"]))
+    assert any("v.mov" in w and "빠졌" in w for w in check(sample(), review(), ["a.jpg", "v.mov"]))

@@ -74,3 +74,10 @@ def test_eval_returns_value_and_raises_on_exception():
     assert page.eval("1+2") == 3
     with pytest.raises(CDPError, match="bad js"):
         page.eval("x(")
+
+
+def test_has_text_evaluates_in_editor_document():
+    ws = FakeWS([{"id": 1, "result": {"result": {"type": "boolean", "value": True}}}])
+    assert CDPPage(ws).has_text("[class*=nvu]", "업로드 완료") is True
+    expr = ws.sent[0]["params"]["expression"]
+    assert '"[class*=nvu]"' in expr and '"업로드 완료"' in expr

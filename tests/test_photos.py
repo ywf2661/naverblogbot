@@ -54,3 +54,41 @@ def test_api_jpeg_keeps_small_image(tmp_path):
     save_img(tmp_path / "s.jpg", size=(400, 300))
     out = Image.open(io.BytesIO(api_jpeg(tmp_path / "s.jpg")))
     assert out.size == (400, 300)
+
+
+import subprocess
+
+import imageio_ffmpeg
+
+from naverblogbot.photos import is_video, list_media
+
+
+def make_video(path, created=None):
+    cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-loglevel", "error", "-y", "-f", "lavfi",
+           "-i", "testsrc=duration=2:size=1920x1080:rate=10", "-pix_fmt", "yuv420p"]
+    if created:
+        cmd += ["-metadata", f"creation_time={created}"]
+    subprocess.run(cmd + [str(path)], check=True)
+
+
+def test_list_media_mixes_photos_and_videos_by_time(tmp_path):
+    save_img(tmp_path / "a.jpg", taken="2026:10:01 13:50:00")
+    save_img(tmp_path / "c.jpg", taken="2026:10:01 13:55:00")
+    make_video(tmp_path / "b.mov", created="2026-10-01T04:52:00Z")  # 한국시간 13:52
+    assert [p.name for p in list_media(tmp_path)] == ["a.jpg", "b.mov", "c.jpg"]
+
+
+def test_video_taken_at_is_local_time(tmp_path):
+    make_video(tmp_path / "v.mp4", created="2026-10-01T04:52:00Z")
+    assert taken_at(tmp_path / "v.mp4") == "2026:10:01 13:52:00"
+
+
+def test_api_jpeg_from_video_frame(tmp_path):
+    make_video(tmp_path / "v.mp4")
+    out = Image.open(io.BytesIO(api_jpeg(tmp_path / "v.mp4")))
+    assert out.format == "JPEG" and max(out.size) == 1280
+
+
+def test_is_video():
+    from pathlib import Path
+    assert is_video(Path("a.MOV")) and is_video(Path("b.mp4")) and not is_video(Path("c.jpg"))

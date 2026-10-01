@@ -126,6 +126,10 @@ class CDPPage:
                        f" if ({json.dumps(drop)}) c.querySelectorAll({json.dumps(drop or 'x')}).forEach(x => x.remove());"
                        f" return c.textContent; }});")
 
+    def has_text(self, sel: str, text: str) -> bool:
+        return self._q(f"return __all({json.dumps(sel)}, true)"
+                       f".some(e => e.innerText.includes({json.dumps(text, ensure_ascii=False)}));")
+
     def wait_for(self, sel: str, index: int = 0, visible: bool = True, timeout: float = 10) -> None:
         deadline = time.time() + timeout
         while time.time() < deadline:

@@ -81,3 +81,12 @@ def test_is_blank_editor():
     from naverblogbot.editor import is_blank_editor
     assert is_blank_editor(["", "\u200b", "  "])
     assert not is_blank_editor(["", "이전 글 내용"])
+
+
+def test_plan_actions_video(tmp_path):
+    d, r = make(tmp_path)
+    (tmp_path / "v.mov").write_bytes(b"x")
+    d.blocks = [Block("video", file="v.mov"), Block("video", file="없음.mov")]
+    acts = plan_actions(d, r, "t")
+    assert ("video", str(tmp_path / "v.mov"), "해미옥 판교") in acts
+    assert not any(a[0] == "video" and "없음.mov" in a[1] for a in acts)

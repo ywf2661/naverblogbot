@@ -58,3 +58,50 @@ def test_friendly_error_other_bad_request_shows_reason():
     e = _status_error(anthropic.BadRequestError, "too many images", 400)
     msg = friendly_error(e)
     assert "too many images" in msg and "잠시 뒤" not in msg
+
+
+def _photos(tmp_path):
+    photos = tmp_path / "photos"
+    photos.mkdir()
+    Image.new("RGB", (50, 50)).save(photos / "a.jpg")
+    return photos
+
+
+def test_make_draft_looks_up_place_and_lists_it_in_checklist(tmp_path, monkeypatch):
+    from naverblogbot import pipeline
+    from naverblogbot.lookup import PlaceInfo
+    seen = {}
+    monkeypatch.setattr(pipeline, "lookup_place", lambda client, model, store, area: PlaceInfo(
+        hours="매일 10~21시", parking="주차 가능", sources=["https://example.com/p"]))
+    real_write = pipeline.write_draft
+
+    def spy(*args, **kwargs):
+        seen["place"] = kwargs.get("place")
+        return real_write(*args, **kwargs)
+    monkeypatch.setattr(pipeline, "write_draft", spy)
+    r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False)
+    result = make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    assert seen["place"].hours == "매일 10~21시"
+    assert any("검색으로 찾은" in c and "https://example.com/p" in c for c in result.checklist)
+
+
+def test_make_draft_skips_lookup_when_user_typed_info_or_disabled(tmp_path, monkeypatch):
+    from naverblogbot import pipeline
+    called = []
+    monkeypatch.setattr(pipeline, "lookup_place", lambda *a: called.append(1))
+    r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False, extra="주차 불가")
+    make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    r2 = ReviewInput(r.photo_dir, "도스마스", "여의도", "좋음", False)
+    make_draft(r2, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json", lookup=False)
+    assert called == []
+
+
+def test_make_draft_lookup_failure_is_a_warning(tmp_path, monkeypatch):
+    from naverblogbot import pipeline
+
+    def boom(*a):
+        raise RuntimeError("검색 서버 오류")
+    monkeypatch.setattr(pipeline, "lookup_place", boom)
+    r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False)
+    result = make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    assert any("자동 검색" in w for w in result.warnings)

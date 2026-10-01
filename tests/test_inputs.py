@@ -45,7 +45,7 @@ def test_validate_heic_only(tmp_path):
 
 def test_no_photos(tmp_path):
     touch(tmp_path, "memo.txt")
-    assert "폴더에 사진(jpg, png, webp)이 없습니다." in validate(make(tmp_path))
+    assert "폴더에 사진이나 동영상(jpg, png, webp, mp4, mov)이 없습니다." in validate(make(tmp_path))
 
 
 def test_keyword_list():
@@ -66,3 +66,8 @@ def test_mixed_heic_is_blocked(tmp_path):
 
 def test_empty_folder_field(tmp_path):
     assert validate(make(tmp_path, photo_dir=Path(""))) == ["사진 폴더를 선택하세요."]
+
+
+def test_video_only_folder_is_ok(tmp_path):
+    touch(tmp_path, "a.MOV")
+    assert validate(make(tmp_path)) == []
