@@ -71,15 +71,21 @@ def make_video(path, created=None):
     subprocess.run(cmd + [str(path)], check=True)
 
 
+def utc_of_local(local: str) -> str:
+    """이 PC 시간대의 현지 시각을 동영상 메타데이터 형식(UTC)으로. 시험이 어느 시간대에서 돌아도 같게 한다."""
+    from datetime import datetime, timezone
+    return datetime.strptime(local, "%Y-%m-%d %H:%M:%S").astimezone().astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def test_list_media_mixes_photos_and_videos_by_time(tmp_path):
     save_img(tmp_path / "a.jpg", taken="2026:10:01 13:50:00")
     save_img(tmp_path / "c.jpg", taken="2026:10:01 13:55:00")
-    make_video(tmp_path / "b.mov", created="2026-10-01T04:52:00Z")  # 한국시간 13:52
+    make_video(tmp_path / "b.mov", created=utc_of_local("2026-10-01 13:52:00"))
     assert [p.name for p in list_media(tmp_path)] == ["a.jpg", "b.mov", "c.jpg"]
 
 
 def test_video_taken_at_is_local_time(tmp_path):
-    make_video(tmp_path / "v.mp4", created="2026-10-01T04:52:00Z")
+    make_video(tmp_path / "v.mp4", created=utc_of_local("2026-10-01 13:52:00"))
     assert taken_at(tmp_path / "v.mp4") == "2026:10:01 13:52:00"
 
 
