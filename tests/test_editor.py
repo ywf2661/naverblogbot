@@ -67,3 +67,11 @@ def test_is_write_page():
     assert is_write_page("https://blog.naver.com/ywf2661/postwrite")
     assert not is_write_page("https://blog.naver.com/ywf2661")
     assert not is_write_page("https://www.naver.com")
+
+
+def test_split_for_typing_isolates_emoji():
+    from naverblogbot.editor import split_for_typing
+    assert split_for_typing("📍 위치·정보") == ["📍", " 위치·정보"]
+    assert split_for_typing("맛있다😋😋 끝") == ["맛있다", "😋", "😋", " 끝"]
+    assert split_for_typing("✔ 직장인 점심") == ["✔ 직장인 점심"]
+    assert split_for_typing("") == []
