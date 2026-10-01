@@ -107,10 +107,13 @@ def build_system(style_samples: str) -> str:
             f"<내 글 예시>\n{style_samples.strip()}\n</내 글 예시>")
 
 
-def build_user_content(r: ReviewInput, photo_paths: list[Path], avoid: list[str],
-                       place: PlaceInfo | None = None) -> list[dict]:
+def media_label(p: Path) -> str:
+    return f"동영상 파일명: {p.name} (영상 속 한 장면)" if is_video(p) else f"사진 파일명: {p.name}"
+
+
+def build_memo(r: ReviewInput, photo_paths: list[Path], avoid: list[str], place: PlaceInfo | None = None) -> str:
     visit = f"협찬 ({r.sponsor})" if r.sponsored else "내돈내산"
-    memo = "\n".join([
+    return "\n".join([
         f"가게명: {r.store}",
         f"동네: {r.area}",
         f"방문 유형: {visit}",
@@ -125,11 +128,14 @@ def build_user_content(r: ReviewInput, photo_paths: list[Path], avoid: list[str]
         "피할 문장: " + (" / ".join(avoid) if avoid else "(없음)"),
         f"사진·동영상 {len(photo_paths)}개가 아래에 파일명과 함께 있다. 동영상은 영상 속 한 장면만 보여 준다.",
     ])
-    content = [{"type": "text", "text": memo}]
+
+
+def build_user_content(r: ReviewInput, photo_paths: list[Path], avoid: list[str],
+                       place: PlaceInfo | None = None) -> list[dict]:
+    content = [{"type": "text", "text": build_memo(r, photo_paths, avoid, place)}]
     for p in photo_paths:
         data = base64.standard_b64encode(api_jpeg(p)).decode("ascii")
-        label = f"동영상 파일명: {p.name} (영상 속 한 장면)" if is_video(p) else f"사진 파일명: {p.name}"
-        content.append({"type": "text", "text": label})
+        content.append({"type": "text", "text": media_label(p)})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}})
     return content
 

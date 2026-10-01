@@ -13,7 +13,7 @@ def test_make_draft_end_to_end(tmp_path):
     photos.mkdir()
     Image.new("RGB", (50, 50)).save(photos / "a.jpg")
     r = ReviewInput(photos, "해미옥", "판교", "좋음", True, "리뷰노트")
-    result = make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    result = make_draft(r, Settings(api_key="k", mode="api"), FakeClient(), history_path=tmp_path / "h.json")
     assert result.draft.disclosure.startswith("[협찬]")
     assert result.html_path.exists()
     assert any("글자 수" in w for w in result.warnings)
@@ -80,7 +80,7 @@ def test_make_draft_looks_up_place_and_lists_it_in_checklist(tmp_path, monkeypat
         return real_write(*args, **kwargs)
     monkeypatch.setattr(pipeline, "write_draft", spy)
     r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False)
-    result = make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    result = make_draft(r, Settings(api_key="k", mode="api"), FakeClient(), history_path=tmp_path / "h.json")
     assert seen["place"].hours == "매일 10~21시"
     assert any("검색으로 찾은" in c and "https://example.com/p" in c for c in result.checklist)
 
@@ -90,9 +90,9 @@ def test_make_draft_skips_lookup_when_user_typed_info_or_disabled(tmp_path, monk
     called = []
     monkeypatch.setattr(pipeline, "lookup_place", lambda *a: called.append(1))
     r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False, extra="주차 불가")
-    make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    make_draft(r, Settings(api_key="k", mode="api"), FakeClient(), history_path=tmp_path / "h.json")
     r2 = ReviewInput(r.photo_dir, "도스마스", "여의도", "좋음", False)
-    make_draft(r2, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json", lookup=False)
+    make_draft(r2, Settings(api_key="k", mode="api"), FakeClient(), history_path=tmp_path / "h.json", lookup=False)
     assert called == []
 
 
@@ -103,5 +103,26 @@ def test_make_draft_lookup_failure_is_a_warning(tmp_path, monkeypatch):
         raise RuntimeError("검색 서버 오류")
     monkeypatch.setattr(pipeline, "lookup_place", boom)
     r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False)
-    result = make_draft(r, Settings(api_key="k"), FakeClient(), history_path=tmp_path / "h.json")
+    result = make_draft(r, Settings(api_key="k", mode="api"), FakeClient(), history_path=tmp_path / "h.json")
     assert any("자동 검색" in w for w in result.warnings)
+
+
+def test_subscription_mode_uses_claude_code(tmp_path, monkeypatch):
+    from naverblogbot import pipeline
+    from naverblogbot.draft import draft_from_dict
+    from naverblogbot.lookup import PlaceInfo
+    calls = {}
+    monkeypatch.setattr(pipeline.cc, "lookup_cc", lambda store, area, model: calls.setdefault("lookup", (store, model)) and PlaceInfo(parking="주차 가능"))
+    def fake_write(r, paths, style, avoid, place=None, model=""):
+        calls["write"] = (model, place.parking)
+        return draft_from_dict(DRAFT_JSON)
+    monkeypatch.setattr(pipeline.cc, "write_draft_cc", fake_write)
+    r = ReviewInput(_photos(tmp_path), "도스마스", "여의도", "좋음", False)
+    result = make_draft(r, Settings(mode="subscription", cc_model="sonnet"), None, history_path=tmp_path / "h.json")
+    assert calls["lookup"] == ("도스마스", "sonnet") and calls["write"] == ("sonnet", "주차 가능")
+    assert result.draft.titles == DRAFT_JSON["titles"]
+
+
+def test_friendly_error_cc():
+    from naverblogbot.cc import CCError
+    assert friendly_error(CCError("구독 사용 한도에 도달했습니다.")) == "구독 사용 한도에 도달했습니다."

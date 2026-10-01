@@ -9,6 +9,8 @@ class Settings:
     api_key: str = ""
     model: str = "claude-opus-5"
     style_samples: str = ""
+    mode: str = "subscription"  # "subscription"(클로드 코드 구독) 또는 "api"(API 키)
+    cc_model: str = "sonnet"  # 구독 방식에서 쓸 모델
 
 
 def app_dir() -> Path:

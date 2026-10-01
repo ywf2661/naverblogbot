@@ -121,3 +121,11 @@ def test_check_counts_videos_as_media():
     d.blocks.append(Block("video", file="v.mov"))
     assert not any("v.mov" in w for w in check(d, review(), ["a.jpg", "v.mov"]))
     assert any("v.mov" in w and "빠졌" in w for w in check(sample(), review(), ["a.jpg", "v.mov"]))
+
+
+def test_finalize_brackets_confirm_items():
+    d = sample(lines=["확인: 비프부리또 9,000원", "「확인: 치킨부리또 8,000원」이에요"])
+    d.confirm = ["비프부리또 9,000원", "치킨부리또 8,000원"]
+    lines = [x for b in finalize(d, review()).blocks for x in b.lines]
+    assert "「확인: 비프부리또 9,000원」" in lines
+    assert "「확인: 치킨부리또 8,000원」이에요" in lines  # 이미 괄호가 있으면 그대로

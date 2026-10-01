@@ -95,8 +95,19 @@ def _collapse_blanks(blocks: list[Block]) -> list[Block]:
     return out
 
 
+def _bracket_confirms(line: str, confirm: list[str]) -> str:
+    """모델이 「」를 빠뜨려도 확인 표시가 눈에 띄도록 괄호를 붙인다."""
+    for c in confirm:
+        bare, marked = f"확인: {c}", f"「확인: {c}」"
+        if bare in line and marked not in line:
+            line = line.replace(bare, marked)
+    return line
+
+
 def finalize(d: Draft, r: ReviewInput) -> Draft:
-    blocks = _collapse_blanks([replace(b, lines=[x for line in b.lines for x in wrap_line(line)]) for b in d.blocks])
+    blocks = _collapse_blanks([
+        replace(b, lines=[x for line in b.lines for x in wrap_line(_bracket_confirms(line, d.confirm))])
+        for b in d.blocks])
     return replace(d, blocks=blocks, disclosure=disclosure_text(r.sponsor) if r.sponsored else "")
 
 

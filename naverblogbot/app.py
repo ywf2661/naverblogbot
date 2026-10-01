@@ -6,7 +6,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 import anthropic
 
-from . import editor, pipeline, settings
+from . import cc, editor, pipeline, settings
 from .inputs import ReviewInput, missing_judgments, validate
 
 
@@ -15,22 +15,35 @@ class SettingsDialog(tk.Toplevel):
         super().__init__(master)
         self.title("설정")
         self.s = s
-        ttk.Label(self, text="Anthropic API 키").grid(row=0, column=0, sticky="w", padx=8, pady=4)
+        self.mode = tk.StringVar(value=s.mode)
+        mf = ttk.LabelFrame(self, text="AI 사용 방식", padding=6)
+        mf.grid(row=0, column=0, columnspan=2, sticky="we", padx=8, pady=6)
+        ttk.Radiobutton(mf, text="구독(클로드 코드) — 돈은 안 들고 구독 사용 한도에서 빠짐. 이 PC에 클로드 코드 설치·로그인 필요",
+                        variable=self.mode, value="subscription").pack(anchor="w")
+        ttk.Radiobutton(mf, text="API 키 — 글 하나에 약 600원, 구독 한도와 무관",
+                        variable=self.mode, value="api").pack(anchor="w")
+        ttk.Label(self, text="구독 방식 모델").grid(row=1, column=0, sticky="w", padx=8)
+        self.cc_model = ttk.Combobox(self, values=["sonnet", "opus"], width=57)
+        self.cc_model.set(s.cc_model)
+        self.cc_model.grid(row=1, column=1, padx=8, pady=4)
+        ttk.Label(self, text="Anthropic API 키").grid(row=2, column=0, sticky="w", padx=8, pady=4)
         self.key = ttk.Entry(self, width=60, show="*")
         self.key.insert(0, s.api_key)
-        self.key.grid(row=0, column=1, padx=8, pady=4)
-        ttk.Label(self, text="모델").grid(row=1, column=0, sticky="w", padx=8)
+        self.key.grid(row=2, column=1, padx=8, pady=4)
+        ttk.Label(self, text="키 방식 모델").grid(row=3, column=0, sticky="w", padx=8)
         self.model = ttk.Combobox(self, values=["claude-opus-5", "claude-sonnet-5"], width=57)
         self.model.set(s.model)
-        self.model.grid(row=1, column=1, padx=8, pady=4)
-        ttk.Label(self, text="내 글 예시\n(직접 쓴 글 2~3개)").grid(row=2, column=0, sticky="nw", padx=8)
+        self.model.grid(row=3, column=1, padx=8, pady=4)
+        ttk.Label(self, text="내 글 예시\n(직접 쓴 글 2~3개)").grid(row=4, column=0, sticky="nw", padx=8)
         self.samples = scrolledtext.ScrolledText(self, width=60, height=12)
         self.samples.insert("1.0", s.style_samples)
-        self.samples.grid(row=2, column=1, padx=8, pady=4)
-        ttk.Button(self, text="저장", command=self._save).grid(row=3, column=1, sticky="e", padx=8, pady=8)
+        self.samples.grid(row=4, column=1, padx=8, pady=4)
+        ttk.Button(self, text="저장", command=self._save).grid(row=5, column=1, sticky="e", padx=8, pady=8)
         self.grab_set()
 
     def _save(self):
+        self.s.mode = self.mode.get()
+        self.s.cc_model = self.cc_model.get().strip() or "sonnet"
         self.s.api_key = self.key.get().strip()
         self.s.model = self.model.get().strip() or "claude-opus-5"
         self.s.style_samples = self.samples.get("1.0", "end").strip()
@@ -45,7 +58,7 @@ class App(tk.Tk):
         self.s = settings.load()
         self.result: pipeline.Result | None = None
         self._build()
-        if not self.s.api_key:
+        if self.s.mode == "api" and not self.s.api_key:
             self.after(200, self.open_settings)
 
     def _entry(self, row, label, width=50):
@@ -138,8 +151,12 @@ class App(tk.Tk):
         self.wait_window(SettingsDialog(self, self.s))
 
     def on_make(self):
-        if not self.s.api_key:
+        if self.s.mode == "api" and not self.s.api_key:
             messagebox.showwarning("설정 필요", "먼저 설정에서 API 키를 입력하세요.")
+            return
+        if self.s.mode == "subscription" and not cc.find_claude():
+            messagebox.showwarning("설정 필요", "이 PC에서 클로드 코드를 찾을 수 없습니다.\n"
+                                   "클로드 코드를 설치·로그인하거나 설정에서 키 방식으로 바꾸세요.")
             return
         r = self._review()
         errors = validate(r)
@@ -157,7 +174,7 @@ class App(tk.Tk):
 
     def _make_worker(self, r, lookup):
         try:
-            client = anthropic.Anthropic(api_key=self.s.api_key)
+            client = anthropic.Anthropic(api_key=self.s.api_key) if self.s.mode == "api" else None
             result = pipeline.make_draft(r, self.s, client, lookup=lookup, log=self._set_status)
             self.after(0, lambda: self._on_made(result))
         except Exception as e:

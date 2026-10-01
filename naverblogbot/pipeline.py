@@ -4,7 +4,7 @@ from pathlib import Path
 
 import anthropic
 
-from . import history, preview
+from . import cc, history, preview
 from .draft import Draft, check, checklist, draft_from_dict, finalize
 from .inputs import ReviewInput
 from .lookup import PlaceInfo, lookup_place
@@ -29,12 +29,19 @@ def make_draft(r: ReviewInput, s: Settings, client, history_path: Path | None = 
     if lookup and not r.extra.strip():  # 직접 입력한 정보가 있으면 검색하지 않는다
         log("영업시간·주차 검색 중... (1~2분)")
         try:
-            place = lookup_place(client, s.model, r.store, r.area)
+            if s.mode == "subscription":
+                place = cc.lookup_cc(r.store, r.area, model=s.cc_model)
+            else:
+                place = lookup_place(client, s.model, r.store, r.area)
         except Exception as e:
             pre_warnings.append(f"영업시간·주차 자동 검색에 실패해 빼고 썼습니다: {friendly_error(e)}")
     log("초안 쓰는 중... (1~2분)")
     paths = list_media(r.photo_dir)
-    raw = write_draft(client, s.model, r, paths, s.style_samples, history.recent_phrases(history_path), place=place)
+    avoid = history.recent_phrases(history_path)
+    if s.mode == "subscription":
+        raw = cc.write_draft_cc(r, paths, s.style_samples, avoid, place=place, model=s.cc_model)
+    else:
+        raw = write_draft(client, s.model, r, paths, s.style_samples, avoid, place=place)
     d = finalize(raw, r)
     warnings = pre_warnings + check(d, r, [p.name for p in paths])
     items = checklist(d, r)
@@ -51,7 +58,7 @@ def load_saved(r: ReviewInput) -> Draft:
 
 
 def friendly_error(e: Exception) -> str:
-    if isinstance(e, DraftError):
+    if isinstance(e, (DraftError, cc.CCError)):
         return str(e)
     if isinstance(e, anthropic.AuthenticationError):
         return "API 키가 올바르지 않습니다. 설정에서 키를 다시 입력하세요."

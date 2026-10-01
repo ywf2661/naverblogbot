@@ -24,3 +24,8 @@ def test_load_ignores_unknown_keys(tmp_path):
     p = tmp_path / "settings.json"
     p.write_text('{"api_key": "k", "old_field": 1}', encoding="utf-8")
     assert settings.load(p).api_key == "k"
+
+
+def test_default_mode_is_subscription(tmp_path):
+    s = settings.load(tmp_path / "settings.json")
+    assert s.mode == "subscription" and s.cc_model == "sonnet"
