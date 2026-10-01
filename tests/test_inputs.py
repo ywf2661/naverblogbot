@@ -56,3 +56,13 @@ def test_keyword_list():
 def test_missing_judgments(tmp_path):
     assert missing_judgments(make(tmp_path)) == ["아쉬운 점", "추천 대상"]
     assert missing_judgments(make(tmp_path, cons="짰음", target="직장인")) == []
+
+
+def test_mixed_heic_is_blocked(tmp_path):
+    touch(tmp_path, "a.png", "b.HEIC", "c.heic")
+    errors = validate(make(tmp_path))
+    assert any("HEIC 사진 2장" in e for e in errors)
+
+
+def test_empty_folder_field(tmp_path):
+    assert validate(make(tmp_path, photo_dir=Path(""))) == ["사진 폴더를 선택하세요."]

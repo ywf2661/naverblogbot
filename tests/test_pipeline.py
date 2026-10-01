@@ -35,3 +35,26 @@ def test_friendly_error_connection():
 def test_friendly_error_draft_and_unknown():
     assert friendly_error(DraftError("거절됨")) == "거절됨"
     assert "알 수 없는 오류" in friendly_error(ValueError("x"))
+
+
+def _status_error(cls, message, status):
+    e = cls.__new__(cls)
+    e.message = message
+    e.status_code = status
+    return e
+
+
+def test_friendly_error_credit_balance():
+    e = _status_error(anthropic.BadRequestError, "Your credit balance is too low to access the Anthropic API.", 400)
+    assert "잔액" in friendly_error(e)
+
+
+def test_friendly_error_model_not_found():
+    e = _status_error(anthropic.NotFoundError, "model: claude-opus-55", 404)
+    assert "모델 이름" in friendly_error(e)
+
+
+def test_friendly_error_other_bad_request_shows_reason():
+    e = _status_error(anthropic.BadRequestError, "too many images", 400)
+    msg = friendly_error(e)
+    assert "too many images" in msg and "잠시 뒤" not in msg

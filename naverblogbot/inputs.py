@@ -26,6 +26,8 @@ class ReviewInput:
 
 
 def validate(r: ReviewInput) -> list[str]:
+    if str(r.photo_dir).strip() in ("", "."):
+        return ["사진 폴더를 선택하세요."]
     folder = Path(r.photo_dir)
     if not folder.is_dir():
         return ["사진 폴더를 찾을 수 없습니다."]
@@ -39,11 +41,12 @@ def validate(r: ReviewInput) -> list[str]:
     if r.sponsored and not r.sponsor.strip():
         errors.append("협찬이면 업체명(또는 체험단명)을 입력하세요.")
     exts = [p.suffix.lower() for p in folder.iterdir() if p.is_file()]
-    if not any(e in PHOTO_EXTS for e in exts):
-        if any(e in HEIC_EXTS for e in exts):
-            errors.append("HEIC 사진은 쓸 수 없습니다. JPG로 바꿔 주세요 (아이폰: 설정 > 카메라 > 포맷 > 높은 호환성).")
-        else:
-            errors.append("폴더에 사진(jpg, png, webp)이 없습니다.")
+    heic = sum(e in HEIC_EXTS for e in exts)
+    if heic:
+        errors.append(f"HEIC 사진 {heic}장은 쓸 수 없습니다. JPG로 바꾸거나 폴더에서 빼 주세요 "
+                      "(아이폰: 설정 > 카메라 > 포맷 > 높은 호환성).")
+    elif not any(e in PHOTO_EXTS for e in exts):
+        errors.append("폴더에 사진(jpg, png, webp)이 없습니다.")
     return errors
 
 

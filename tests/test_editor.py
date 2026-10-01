@@ -75,3 +75,9 @@ def test_split_for_typing_isolates_emoji():
     assert split_for_typing("맛있다😋😋 끝") == ["맛있다", "😋", "😋", " 끝"]
     assert split_for_typing("✔ 직장인 점심") == ["✔ 직장인 점심"]
     assert split_for_typing("") == []
+
+
+def test_is_blank_editor():
+    from naverblogbot.editor import is_blank_editor
+    assert is_blank_editor(["", "\u200b", "  "])
+    assert not is_blank_editor(["", "이전 글 내용"])

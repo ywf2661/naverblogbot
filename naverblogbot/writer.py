@@ -134,7 +134,8 @@ def write_draft(client, model: str, r: ReviewInput, photo_paths: list[Path],
         message = stream.get_final_message()
     if message.stop_reason == "refusal":
         raise DraftError("AI가 이 요청을 거절했습니다. 사진이나 메모에 문제가 될 내용이 없는지 확인해 주세요.")
-    text = next((b.text for b in message.content if b.type == "text"), "")
+    # 폴백이 일어나면 거절한 모델의 미완성 출력이 앞에 남으므로 마지막 텍스트 블록을 쓴다.
+    text = next((b.text for b in reversed(message.content) if b.type == "text"), "")
     try:
         return draft_from_dict(json.loads(text))
     except (json.JSONDecodeError, KeyError, TypeError) as e:

@@ -156,3 +156,7 @@
 - **로그인과 블로그 글쓰기 화면 열기는 사용자가 직접** 한다.
 - [네이버 에디터에 입력]을 누르면 봇이 디버깅 포트로 붙어, 주소가 글쓰기 화면(`Redirect=Write`, `/postwrite`)인 탭을 찾아 입력만 한다. 페이지 이동·로그인·창 닫기를 하지 않는다.
 - 창에 [작성용 크롬 열기] 버튼을 추가한다. 글쓰기 화면이 없으면 "글쓰기 화면을 띄워 주세요" 안내.
+
+## 변경 (2026-10-01): 글쓰기 탭에만 직접 연결
+
+Playwright의 connect_over_cdp는 모든 탭에 붙는데, 크롬이 잠재운 뒤쪽 탭(네이버 메인 등)이 응답하지 않으면 연결이 멈추고, 크롬 154의 browser_ui 대상(주소창 팝업)에서는 드라이버가 죽었다. 그래서 Playwright를 빼고 `naverblogbot/cdp.py`가 `/json/list`에서 글쓰기 탭 하나를 골라 웹소켓으로 직접 붙는다. 클릭은 요소 위치를 계산해 마우스 이벤트로, 글자는 `Input.insertText`, 키는 `Input.dispatchKeyEvent`, 사진은 파일 선택창 가로채기(`Page.setInterceptFileChooserDialog`)로 넣는다. 끝나면 가로채기를 끄고 연결만 끊는다. exe에서 Playwright 드라이버가 빠져 크기가 줄었다.

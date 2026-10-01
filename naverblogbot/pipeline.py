@@ -47,6 +47,14 @@ def friendly_error(e: Exception) -> str:
         return "요청이 많아 잠시 막혔습니다. 1분 뒤 다시 시도하세요."
     if isinstance(e, anthropic.APIConnectionError):
         return "AI 서버에 연결하지 못했습니다. 인터넷 연결이나 회사망 보안 설정을 확인하세요."
+    if isinstance(e, anthropic.NotFoundError):
+        return "모델 이름을 찾을 수 없습니다. 설정에서 모델 이름을 확인하세요."
     if isinstance(e, anthropic.APIStatusError):
-        return f"AI 서버 오류입니다 ({getattr(e, 'status_code', '?')}). 잠시 뒤 다시 시도하세요."
+        status = getattr(e, "status_code", 0) or 0
+        message = getattr(e, "message", "") or ""
+        if "credit balance" in message:
+            return "API 사용 잔액이 부족합니다. Anthropic 콘솔에서 결제 수단·잔액을 확인하세요."
+        if 400 <= status < 500:
+            return f"AI 서버가 요청을 받아들이지 않았습니다 ({status}): {message}"
+        return f"AI 서버 오류입니다 ({status}). 잠시 뒤 다시 시도하세요."
     return f"알 수 없는 오류가 났습니다: {e}"

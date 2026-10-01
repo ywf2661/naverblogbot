@@ -92,3 +92,15 @@ def test_bad_json_raises(setup):
     r, paths = setup
     with pytest.raises(DraftError, match="형식"):
         write_draft(FakeClient(text="{not json"), "m", r, paths, "", [])
+
+
+def test_uses_last_text_block_after_fallback(setup):
+    r, paths = setup
+    client = FakeClient()
+    client._msg.content = [
+        SimpleNamespace(type="thinking", thinking=""),
+        SimpleNamespace(type="text", text='{"titles": ["부분'),
+        SimpleNamespace(type="fallback"),
+        SimpleNamespace(type="text", text=json.dumps(DRAFT_JSON, ensure_ascii=False)),
+    ]
+    assert write_draft(client, "m", r, paths, "", []).titles == DRAFT_JSON["titles"]

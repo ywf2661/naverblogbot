@@ -1,4 +1,4 @@
-anthropic
+anthropic>=1.11,<2
 pillow
-playwright
 truststore
+websocket-client
