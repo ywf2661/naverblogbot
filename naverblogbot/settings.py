@@ -19,8 +19,8 @@ def app_dir() -> Path:
 
 def profile_dir() -> Path:
     if os.getenv("NAVERBLOGBOT_HOME"):
-        return Path(os.environ["NAVERBLOGBOT_HOME"]) / "chrome-profile"
-    return Path(os.environ["LOCALAPPDATA"]) / "naverblogbot" / "chrome-profile"
+        return Path(os.environ["NAVERBLOGBOT_HOME"]) / "browser-profile"
+    return Path(os.environ["LOCALAPPDATA"]) / "naverblogbot" / "browser-profile"
 
 
 def _default_path() -> Path:

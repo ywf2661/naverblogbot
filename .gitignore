@@ -5,3 +5,6 @@ build/
 dist/
 *.spec.bak
 .pytest_cache/
+probe.png
+probe.txt
+probe*.png

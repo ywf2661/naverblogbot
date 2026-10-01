@@ -4,7 +4,7 @@ from naverblogbot import settings
 def test_app_dir_uses_env(tmp_path, monkeypatch):
     monkeypatch.setenv("NAVERBLOGBOT_HOME", str(tmp_path))
     assert settings.app_dir() == tmp_path
-    assert settings.profile_dir() == tmp_path / "chrome-profile"
+    assert settings.profile_dir() == tmp_path / "browser-profile"
 
 
 def test_load_missing_returns_defaults(tmp_path):
